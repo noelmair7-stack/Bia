@@ -100,8 +100,10 @@ li{display:flex;align-items:center;min-height:60px;border-bottom:1px solid var(-
 .bigrow .big{margin:0}
 .macher{background:var(--fg);color:var(--bg);font-weight:800;font-size:20px;letter-spacing:.1em;padding:7px 11px 6px;border-radius:4px}
 .share{position:fixed;inset:0;background:var(--bg);z-index:30;display:flex;flex-direction:column;padding:calc(16px + env(safe-area-inset-top,0px)) 20px calc(16px + env(safe-area-inset-bottom,0px))}
-.share .imgwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.share .imgwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;margin-top:12px}
 .share img{max-width:100%;max-height:100%;border-radius:14px;border:1.5px solid var(--fg)}
+.share .imgwrap.checker img{background:repeating-conic-gradient(#c8c8c8 0 25%,#f2f2f2 0 50%) 0 0/24px 24px}
+.share .seg button{height:40px;font-size:15px}
 .share .hint{color:var(--mut);font-size:14px;text-align:center;margin:12px 0 0}
 .share .primary{margin-top:12px}
 .share .secondary{margin-top:8px}
@@ -149,7 +151,7 @@ li{display:flex;align-items:center;min-height:60px;border-bottom:1px solid var(-
       <button class="secondary" id="importBtn">Backup laden</button>
       <input type="file" id="importFile" accept=".json,application/json" hidden>
       <p class="status" id="bMsg" hidden></p>
-      <p class="status">Version 3</p>
+      <p class="status">Version 4</p>
     </div>
   </section>
 </main>
@@ -179,9 +181,15 @@ li{display:flex;align-items:center;min-height:60px;border-bottom:1px solid var(-
 </div>
 
 <div id="share" class="share" hidden>
-  <div class="imgwrap"><img id="shareImg" alt="Deine Auswertung als Bild"></div>
-  <p class="hint">Tippe auf Teilen, halte das Bild gedrückt oder mach einen Screenshot.</p>
-  <button class="primary" id="shareGo">Teilen</button>
+  <div class="seg" id="shareMode">
+    <button data-mode="light">Transparent hell</button>
+    <button data-mode="dark">Transparent dunkel</button>
+    <button data-mode="solid">Schwarz</button>
+  </div>
+  <div class="imgwrap" id="shareWrap"><img id="shareImg" alt="Deine Auswertung als Bild"></div>
+  <p class="hint" id="shareHint"></p>
+  <button class="primary" id="shareGo">Teilen / Sichern</button>
+  <button class="secondary" id="shareCopy">Kopieren</button>
   <button class="secondary" id="shareClose">Schließen</button>
 </div>
 
@@ -293,21 +301,29 @@ function periodName(){
   if(rangeKind==='week')return 'Woche '+fmtRange(a,b);
   return MON[A.getMonth()]+' '+A.getFullYear();
 }
-function drawCard(){
+let shareMode='light';
+try{const m=localStorage.getItem('plan-tracker.sharemode');if(m==='light'||m==='dark'||m==='solid')shareMode=m;}catch(e){}
+function drawCard(mode){
   const W=1080,H=1350,c=document.createElement('canvas');c.width=W;c.height=H;
   const g=c.getContext('2d'),F='-apple-system,"SF Pro Display","Helvetica Neue",Arial,sans-serif';
   const {P,X,per}=LAST,pc=P?Math.round(X/P*100):0,mach=P&&X/P>=0.95;let wrapped=false;
-  g.fillStyle='#000';g.fillRect(0,0,W,H);
-  g.fillStyle='#fff';g.textBaseline='alphabetic';
+  const solid=mode==='solid',dark=mode==='dark';
+  const FG=dark?'#000':'#fff',INV=dark?'#fff':'#000';
+  const MUT=solid?'#8a8a8a':(dark?'rgba(0,0,0,.72)':'rgba(255,255,255,.88)');
+  const shadowOn=()=>{if(!solid){g.shadowColor=dark?'rgba(255,255,255,.55)':'rgba(0,0,0,.5)';g.shadowBlur=16;g.shadowOffsetY=2;}};
+  const shadowOff=()=>{g.shadowColor='transparent';g.shadowBlur=0;g.shadowOffsetY=0;};
+  if(solid){g.fillStyle='#000';g.fillRect(0,0,W,H);}
+  shadowOn();
+  g.fillStyle=FG;g.textBaseline='alphabetic';
   g.font='600 44px '+F;g.fillText(periodName(),80,140);
-  g.fillStyle='#8a8a8a';g.font='500 36px '+F;g.fillText('geplant vs. geschafft',80,196);
-  g.fillStyle='#fff';g.font='800 300px '+F;
+  g.fillStyle=MUT;g.font='500 36px '+F;g.fillText('geplant vs. geschafft',80,196);
+  g.fillStyle=FG;g.font='800 300px '+F;
   const txt=P?pc+'%':'–';g.fillText(txt,64,500);
   if(mach){
     const tw=g.measureText(txt).width;g.font='900 56px '+F;
     const lbl='MACHER',lw=g.measureText(lbl).width+56;let bx=64+tw+36,by=330;
     if(bx+lw>W-60){bx=80;by=540;wrapped=true;}
-    g.fillRect(bx,by,lw,92);g.fillStyle='#000';g.fillText(lbl,bx+28,by+68);g.fillStyle='#fff';
+    g.fillRect(bx,by,lw,92);shadowOff();g.fillStyle=INV;g.fillText(lbl,bx+28,by+68);shadowOn();g.fillStyle=FG;
   }
   g.font='500 46px '+F;
   g.fillText(P?fmtH(X).replace(' h','')+' von '+fmtH(P).replace(' h','')+' Stunden':'Nichts geplant',80,wrapped?720:610);
@@ -316,15 +332,20 @@ function drawCard(){
   CATS.forEach(cat=>{
     const v=per[cat.id],p=v.p?Math.round(v.x/v.p*100):0;
     y+=30;
-    g.font='700 46px '+F;g.fillStyle='#fff';g.fillText(cat.name,80,y+20);
-    g.font='500 38px '+F;g.fillStyle='#8a8a8a';g.textAlign='right';
+    g.font='700 46px '+F;g.fillStyle=FG;g.fillText(cat.name,80,y+20);
+    g.font='500 38px '+F;g.fillStyle=MUT;g.textAlign='right';
     g.fillText(v.p?fmtH(v.x).replace(' h','')+' / '+fmtH(v.p)+'   '+p+'%':'nicht geplant',W-80,y+20);g.textAlign='left';
-    g.strokeStyle='#fff';g.lineWidth=4;g.strokeRect(82,y+50,W-164,26);
-    g.fillStyle='#fff';g.fillRect(82,y+50,(W-164)*Math.min(p,100)/100,26);
+    g.strokeStyle=FG;g.lineWidth=4;g.strokeRect(82,y+50,W-164,26);
+    g.fillStyle=FG;g.fillRect(82,y+50,(W-164)*Math.min(p,100)/100,26);
     y+=125;
   });
-  g.fillStyle='#8a8a8a';g.font='600 34px '+F;g.fillText('PLAN',80,H-50);
-  return c;
+  g.fillStyle=MUT;g.font='600 34px '+F;
+  if(solid){g.fillText('PLAN',80,H-50);return c;}
+  g.fillText('PLAN',80,y+20);
+  // transparent: knapp zuschneiden, damit es sich wie ein Sticker verhält
+  const top=70,bot=Math.min(H,y+70),out=document.createElement('canvas');
+  out.width=W;out.height=bot-top;out.getContext('2d').drawImage(c,0,top,W,bot-top,0,0,W,bot-top);
+  return out;
 }
 let shareBlob=null;
 function saveFile(blob,name){
@@ -354,11 +375,19 @@ function importData(file){
   };
   r.readAsText(file);
 }
-function openShare(){
-  if(!LAST)renderStats();
-  const c=drawCard();
+function drawShare(){
+  const c=drawCard(shareMode);
   $('shareImg').src=c.toDataURL('image/png');
   shareBlob=null;c.toBlob(b=>{shareBlob=b;},'image/png');
+  $('shareWrap').classList.toggle('checker',shareMode!=='solid');
+  document.querySelectorAll('#shareMode [data-mode]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===shareMode));
+  $('shareHint').textContent=shareMode==='solid'
+    ?'Bild mit schwarzem Hintergrund, z. B. für einen eigenen Post.'
+    :'Transparentes Bild: In der Instagram-Story dein Espresso-Foto als Hintergrund wählen, dann die Auswertung kopieren und einfügen (oder als Foto-Sticker hinzufügen).';
+}
+function openShare(){
+  if(!LAST)renderStats();
+  drawShare();
   $('share').hidden=false;
 }
 async function doShare(){
@@ -371,6 +400,14 @@ async function doShare(){
   saveFile(shareBlob,name);
   return;
   $('shareGo').hidden=true;
+}
+async function doCopy(){
+  if(!shareBlob)return;
+  const btn=$('shareCopy');
+  try{
+    await navigator.clipboard.write([new ClipboardItem({'image/png':shareBlob})]);
+    btn.textContent='Kopiert ✓';setTimeout(()=>{btn.textContent='Kopieren';},1800);
+  }catch(e){btn.hidden=true;}
 }
 function render(){renderPlan();if(!$('vStats').hidden)renderStats();}
 
@@ -436,6 +473,9 @@ $('exportBtn').onclick=exportData;
 $('importBtn').onclick=()=>$('importFile').click();
 $('importFile').onchange=e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';};
 $('shareGo').onclick=doShare;
+$('shareCopy').onclick=doCopy;
+if(!(navigator.clipboard&&window.ClipboardItem))$('shareCopy').hidden=true;
+$('shareMode').onclick=e=>{const b=e.target.closest('[data-mode]');if(!b)return;shareMode=b.dataset.mode;try{localStorage.setItem('plan-tracker.sharemode',shareMode)}catch(_){}drawShare();};
 $('shareClose').onclick=()=>{$('share').hidden=true;$('shareGo').hidden=false;};
 $('sCancel').onclick=closeSheet;
 $('backdrop').onclick=closeSheet;
