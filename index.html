@@ -16,14 +16,14 @@
 :root[data-theme="dark"]{--bg:#000;--fg:#fff;--mut:#9a9a9a;--soft:#262626;color-scheme:dark}
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *,*::before,*::after{box-sizing:border-box}
-html,body{height:100%;margin:0}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
 html,body,button,input,label{touch-action:manipulation}
 html{-webkit-text-size-adjust:100%;scroll-padding-top:env(safe-area-inset-top,0px);background:var(--bg)}
 body{background:var(--bg);color:var(--fg);font:17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;-webkit-tap-highlight-color:transparent;font-variant-numeric:tabular-nums}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 :focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 [hidden]{display:none!important}
-main{max-width:520px;margin:0 auto;padding:12px 20px calc(96px + env(safe-area-inset-bottom,0px))}
+main{height:100%;overflow-y:auto;overscroll-behavior:none;-webkit-overflow-scrolling:auto;max-width:520px;margin:0 auto;padding:12px 20px calc(96px + env(safe-area-inset-bottom,0px))}
 
 .month{display:flex;align-items:center;justify-content:space-between;margin:4px 0 14px}
 .month h1{font-size:28px;font-weight:700;letter-spacing:-.02em;margin:0}
@@ -149,6 +149,7 @@ li{display:flex;align-items:center;min-height:60px;border-bottom:1px solid var(-
       <button class="secondary" id="importBtn">Backup laden</button>
       <input type="file" id="importFile" accept=".json,application/json" hidden>
       <p class="status" id="bMsg" hidden></p>
+      <p class="status">Version 3</p>
     </div>
   </section>
 </main>
@@ -446,9 +447,15 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   const stats=b.dataset.tab==='stats';
   $('vPlan').hidden=stats;$('vStats').hidden=!stats;
   if(stats)renderStats();else renderPlan();
-  window.scrollTo(0,0);
+  document.querySelector('main').scrollTop=0;
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S)closeSheet();});
+
+/* no zoom: pinch + double tap */
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault();},{passive:false});
+let lastTouch=0;
+document.addEventListener('touchend',e=>{const n=Date.now();if(n-lastTouch<350){e.preventDefault();if(e.target.closest('button,label,input'))e.target.click();}lastTouch=n;},{passive:false});
 
 loadCache();
 render();
