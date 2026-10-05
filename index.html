@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Plan">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<title>Plan</title>
+<style>
+:root{--bg:#fff;--fg:#000;--mut:#6b6b6b;--soft:#e6e6e6;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--fg:#fff;--mut:#9a9a9a;--soft:#262626;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#000;--fg:#fff;--mut:#9a9a9a;--soft:#262626;color-scheme:dark}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px);background:var(--bg)}
+body{background:var(--bg);color:var(--fg);font:17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;-webkit-tap-highlight-color:transparent;font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+[hidden]{display:none!important}
+main{max-width:520px;margin:0 auto;padding:12px 20px calc(96px + env(safe-area-inset-bottom,0px))}
+
+.month{display:flex;align-items:center;justify-content:space-between;margin:4px 0 14px}
+.month h1{font-size:28px;font-weight:700;letter-spacing:-.02em;margin:0}
+.month button{width:44px;height:44px;font-size:30px;line-height:1}
+.wd,.grid{display:grid;grid-template-columns:repeat(7,1fr);text-align:center}
+.wd span{font-size:13px;color:var(--mut);padding-bottom:6px}
+.grid button{height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:16px}
+.num{width:32px;height:32px;line-height:32px;border-radius:50%}
+.today .num{box-shadow:inset 0 0 0 1.5px var(--fg)}
+.sel .num{background:var(--fg);color:var(--bg);font-weight:600}
+.mark{width:6px;height:6px;border:1.2px solid var(--fg)}
+.mark.full{background:var(--fg)}
+.mark.none{visibility:hidden}
+
+.dayhead{display:flex;align-items:baseline;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:1.5px solid var(--fg)}
+.dayhead h2{font-size:21px;font-weight:600;margin:0}
+.link{color:var(--mut);text-decoration:underline;text-underline-offset:3px;padding:8px 0 8px 12px}
+
+ul{list-style:none;margin:8px 0 0;padding:0}
+li{display:flex;align-items:center;min-height:60px;border-bottom:1px solid var(--soft)}
+.check{width:44px;height:44px;display:grid;place-items:center;margin-left:-8px;margin-right:6px;flex:none}
+.box{width:28px;height:28px;border:2px solid var(--fg);border-radius:7px;display:grid;place-items:center}
+.check[aria-pressed="true"] .box{background:var(--fg);color:var(--bg)}
+.box svg{width:18px;height:18px;visibility:hidden}
+.check[aria-pressed="true"] svg{visibility:visible}
+.label{flex:1;display:flex;justify-content:space-between;align-items:center;min-height:44px;text-align:left;font-size:18px}
+.label .h{color:var(--mut);font-size:16px}
+.empty{color:var(--mut);margin:20px 0 0}
+
+.primary,.secondary{display:block;width:100%;height:52px;border-radius:12px;font-weight:600;margin-top:20px}
+.primary{background:var(--fg);color:var(--bg)}
+.secondary{border:1.5px solid var(--fg)}
+.danger{display:block;width:100%;height:44px;margin-top:8px;color:var(--mut);text-decoration:underline;text-underline-offset:3px}
+
+.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--bg);border-top:1.5px solid var(--fg);padding-bottom:env(safe-area-inset-bottom,0px);z-index:10}
+.tabs button{flex:1;height:56px;font-size:16px;color:var(--mut)}
+.tabs button[aria-current="page"]{color:var(--fg);font-weight:600}
+
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20}
+.panel{position:fixed;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;background:var(--bg);border-top:1.5px solid var(--fg);border-radius:18px 18px 0 0;padding:22px 20px calc(20px + env(safe-area-inset-bottom,0px));z-index:21;max-height:92%;overflow-y:auto}
+.panel h3{margin:0;font-size:21px}
+.panel .when{color:var(--mut);margin:2px 0 0;font-size:15px}
+.field{margin-top:20px}
+.field > span{display:block;font-size:14px;color:var(--mut);margin-bottom:8px}
+.seg{display:flex;gap:8px}
+.seg button{flex:1;height:46px;border:1.5px solid var(--fg);border-radius:10px;font-size:16px}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg);font-weight:600}
+.stepper{display:flex;align-items:center;gap:14px}
+.stepper button{width:46px;height:46px;border:1.5px solid var(--fg);border-radius:10px;font-size:24px;line-height:1}
+.stepper output{min-width:90px;text-align:center;font-size:24px;font-weight:600}
+.repeat{display:flex;align-items:center;gap:12px;margin-top:20px;min-height:44px}
+.repeat input{width:24px;height:24px;accent-color:var(--fg);margin:0}
+
+.stats h1{font-size:28px;font-weight:700;letter-spacing:-.02em;margin:4px 0 16px}
+.range{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.range button{height:44px;border:1.5px solid var(--fg);border-radius:10px;font-size:15px}
+.range button[aria-pressed="true"]{background:var(--fg);color:var(--bg);font-weight:600}
+.rlabel{color:var(--mut);margin:16px 0 0;font-size:15px}
+.big{font-size:96px;font-weight:700;letter-spacing:-.05em;line-height:1;margin:22px 0 4px}
+.sub{margin:0 0 8px;font-size:18px}
+.cats{margin-top:24px;border-top:1.5px solid var(--fg)}
+.cat{padding:16px 0;border-bottom:1px solid var(--soft)}
+.cat .row{display:flex;justify-content:space-between;align-items:baseline}
+.cat .name{font-size:18px;font-weight:600}
+.cat .val{color:var(--mut);font-size:15px}
+.bar{height:12px;border:1.5px solid var(--fg);border-radius:3px;margin-top:10px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--fg)}
+.note{color:var(--mut);font-size:15px;margin-top:18px}
+.status{color:var(--mut);font-size:14px;margin-top:12px}
+.backup{margin-top:40px;padding-top:4px;border-top:1px solid var(--soft)}
+.backup .secondary{margin-top:12px}
+
+.bigrow{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:22px 0 6px}
+.bigrow .big{margin:0}
+.macher{background:var(--fg);color:var(--bg);font-weight:800;font-size:20px;letter-spacing:.1em;padding:7px 11px 6px;border-radius:4px}
+.share{position:fixed;inset:0;background:var(--bg);z-index:30;display:flex;flex-direction:column;padding:calc(16px + env(safe-area-inset-top,0px)) 20px calc(16px + env(safe-area-inset-bottom,0px))}
+.share .imgwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.share img{max-width:100%;max-height:100%;border-radius:14px;border:1.5px solid var(--fg)}
+.share .hint{color:var(--mut);font-size:14px;text-align:center;margin:12px 0 0}
+.share .primary{margin-top:12px}
+.share .secondary{margin-top:8px}
+#flash{position:fixed;inset:0;background:#18c964;opacity:0;pointer-events:none;z-index:50}
+#flash.on{animation:flash .55s ease-out}
+@keyframes flash{0%{opacity:0}12%{opacity:.9}100%{opacity:0}}
+</style>
+</head>
+<body>
+<main>
+  <section id="vPlan">
+    <header class="month">
+      <button id="prevM" aria-label="Vorheriger Monat">‹</button>
+      <h1 id="mTitle"></h1>
+      <button id="nextM" aria-label="Nächster Monat">›</button>
+    </header>
+    <div class="wd"><span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span></div>
+    <div id="grid" class="grid"></div>
+    <div class="dayhead">
+      <h2 id="dTitle"></h2>
+      <button id="todayBtn" class="link">Heute</button>
+    </div>
+    <ul id="list"></ul>
+    <p id="empty" class="empty" hidden>Für diesen Tag ist nichts geplant.</p>
+    <button id="addBtn" class="primary">Eintrag hinzufügen</button>
+  </section>
+
+  <section id="vStats" class="stats" hidden>
+    <h1>Auswertung</h1>
+    <div class="range" id="range">
+      <button data-r="week">Diese Woche</button>
+      <button data-r="month">Dieser Monat</button>
+      <button data-r="last">Letzter Monat</button>
+      <button data-r="all">Gesamt</button>
+    </div>
+    <p class="rlabel" id="rLabel"></p>
+    <div class="bigrow"><div class="big" id="pct"></div><span class="macher" id="macher" hidden>MACHER</span></div>
+    <p class="sub" id="sum"></p>
+    <div class="cats" id="cats"></div>
+    <p class="note" id="future" hidden></p>
+    <button class="primary" id="shareBtn">Auswertung teilen</button>
+    <div class="backup">
+      <p class="note">Deine Daten liegen nur auf diesem iPhone. Sichere ab und zu ein Backup, z. B. in der Dateien-App oder iCloud Drive.</p>
+      <button class="secondary" id="exportBtn">Backup sichern</button>
+      <button class="secondary" id="importBtn">Backup laden</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+      <p class="status" id="bMsg" hidden></p>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-tab="plan" aria-current="page">Planen</button>
+  <button data-tab="stats">Auswertung</button>
+</nav>
+
+<div id="sheet" hidden>
+  <div class="backdrop" id="backdrop"></div>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="sTitle">
+    <h3 id="sTitle"></h3>
+    <p class="when" id="sWhen"></p>
+    <div class="field"><span>Was</span><div class="seg" id="sCat"></div></div>
+    <div class="field"><span>Geplant</span>
+      <div class="stepper"><button data-step="p" data-d="-0.5" aria-label="Weniger">−</button><output id="sP"></output><button data-step="p" data-d="0.5" aria-label="Mehr">+</button></div>
+    </div>
+    <div class="field" id="sXField"><span>Tatsächlich gemacht</span>
+      <div class="stepper"><button data-step="x" data-d="-0.5" aria-label="Weniger">−</button><output id="sX"></output><button data-step="x" data-d="0.5" aria-label="Mehr">+</button></div>
+    </div>
+    <label class="repeat" id="sRepeatRow"><input type="checkbox" id="sRepeat"><span id="sRepeatText"></span></label>
+    <button class="primary" id="sSave"></button>
+    <button class="secondary" id="sCancel">Abbrechen</button>
+    <button class="danger" id="sDelete">Eintrag löschen</button>
+  </div>
+</div>
+
+<div id="share" class="share" hidden>
+  <div class="imgwrap"><img id="shareImg" alt="Deine Auswertung als Bild"></div>
+  <p class="hint">Tippe auf Teilen, halte das Bild gedrückt oder mach einen Screenshot.</p>
+  <button class="primary" id="shareGo">Teilen</button>
+  <button class="secondary" id="shareClose">Schließen</button>
+</div>
+
+<div id="flash"></div>
+
+<script>
+const CATS=[{id:'training',name:'Training'},{id:'lernen',name:'Lernen'},{id:'arbeit',name:'Arbeit'}];
+const CATNAME=Object.fromEntries(CATS.map(c=>[c.id,c.name]));
+const MON=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const WDAY=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const CACHE='plan-tracker.v1';
+const $=id=>document.getElementById(id);
+
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const parse=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const fmtH=n=>(Math.round(n*10)/10).toString().replace('.',',')+' h';
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+let months={};             // "2026-10" -> {entries:{id:{d,c,p,x}}}
+const today=()=>ymd(new Date());
+let sel=today();
+let vy=new Date().getFullYear(), vm=new Date().getMonth();
+let rangeKind='month';
+
+/* ---------- storage ---------- */
+function loadCache(){try{const s=localStorage.getItem(CACHE);if(s){const o=JSON.parse(s);if(o&&typeof o==='object')months=o;}}catch(e){}}
+function saveCache(){try{localStorage.setItem(CACHE,JSON.stringify(months))}catch(e){}}
+function persist(key){saveCache();}
+
+/* ---------- data helpers ---------- */
+function monthOf(date){const k=date.slice(0,7);if(!months[k])months[k]={entries:{}};return months[k];}
+function entriesOn(date){
+  const m=months[date.slice(0,7)];if(!m)return [];
+  const order=CATS.map(c=>c.id);
+  return Object.entries(m.entries).filter(([,e])=>e.d===date).map(([id,e])=>({id,...e}))
+    .sort((a,b)=>order.indexOf(a.c)-order.indexOf(b.c)||(a.t||0)-(b.t||0));
+}
+function allEntries(){const out=[];for(const k in months){for(const id in months[k].entries)out.push(months[k].entries[id]);}return out;}
+function findEntry(id){for(const k in months){if(months[k].entries[id])return {key:k,e:months[k].entries[id]};}return null;}
+
+/* ---------- plan view ---------- */
+function renderPlan(){
+  $('mTitle').textContent=MON[vm]+' '+vy;
+  const first=new Date(vy,vm,1), off=(first.getDay()+6)%7, n=new Date(vy,vm+1,0).getDate(), t=today();
+  let h='';
+  for(let i=0;i<off;i++)h+='<span></span>';
+  for(let d=1;d<=n;d++){
+    const ds=vy+'-'+pad(vm+1)+'-'+pad(d), es=entriesOn(ds);
+    let mk='none';
+    if(es.length)mk=es.every(e=>e.x>0)?'full':'open';
+    const cls=(ds===sel?' sel':'')+(ds===t?' today':'');
+    h+=`<button class="${cls}" data-date="${ds}" aria-label="${d}. ${MON[vm]}${es.length?', '+es.length+' Einträge':''}"><span class="num">${d}</span><span class="mark ${mk}"></span></button>`;
+  }
+  $('grid').innerHTML=h;
+  const sd=parse(sel);
+  $('dTitle').textContent=WDAY[sd.getDay()]+', '+sd.getDate()+'. '+MON[sd.getMonth()];
+  $('todayBtn').hidden=sel===t;
+  const es=entriesOn(sel);
+  $('empty').hidden=es.length>0;
+  $('list').innerHTML=es.map(e=>{
+    const done=e.x>0;
+    const hrs=done&&e.x!==e.p?fmtH(e.x).replace(' h','')+' von '+fmtH(e.p):fmtH(e.p);
+    return `<li><button class="check" data-check="${e.id}" aria-pressed="${done}" aria-label="${CATNAME[e.c]} abhaken"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></button><button class="label" data-edit="${e.id}"><span>${CATNAME[e.c]}</span><span class="h">${hrs}</span></button></li>`;
+  }).join('');
+}
+
+/* ---------- stats view ---------- */
+function rangeFor(kind){
+  const t=new Date();
+  if(kind==='week'){const mon=new Date(t.getFullYear(),t.getMonth(),t.getDate()-((t.getDay()+6)%7));const sun=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+6);return [ymd(mon),ymd(sun)];}
+  if(kind==='month')return [ymd(new Date(t.getFullYear(),t.getMonth(),1)),ymd(new Date(t.getFullYear(),t.getMonth()+1,0))];
+  if(kind==='last')return [ymd(new Date(t.getFullYear(),t.getMonth()-1,1)),ymd(new Date(t.getFullYear(),t.getMonth(),0))];
+  return ['0000-01-01','9999-12-31'];
+}
+function fmtRange(a,b){
+  const A=parse(a),B=parse(b);
+  if(A.getMonth()===B.getMonth())return A.getDate()+'. – '+B.getDate()+'. '+MON[B.getMonth()]+' '+B.getFullYear();
+  return A.getDate()+'. '+MON[A.getMonth()]+' – '+B.getDate()+'. '+MON[B.getMonth()]+' '+B.getFullYear();
+}
+function renderStats(){
+  document.querySelectorAll('#range button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.r===rangeKind));
+  const [a,b]=rangeFor(rangeKind), t=today(), end=b<t?b:t;
+  const per={};CATS.forEach(c=>per[c.id]={p:0,x:0});
+  let P=0,X=0,F=0;
+  for(const e of allEntries()){
+    if(e.d<a||e.d>b)continue;
+    if(e.d>end){F+=e.p;continue;}
+    if(!per[e.c])continue;
+    per[e.c].p+=e.p;per[e.c].x+=(e.x||0);P+=e.p;X+=(e.x||0);
+  }
+  LAST={a,b,P,X,F,per};
+  $('rLabel').textContent=(rangeKind==='all'?'Alle Einträge':fmtRange(a,b))+(b>t?', gezählt bis heute':'');
+  $('macher').hidden=!(P&&X/P>=0.95);
+  $('pct').textContent=P?Math.round(X/P*100)+' %':'–';
+  $('sum').textContent=P?fmtH(X).replace(' h','')+' von '+fmtH(P).replace(' h','')+' Stunden geschafft':'In diesem Zeitraum war nichts geplant.';
+  $('cats').innerHTML=CATS.map(c=>{
+    const v=per[c.id],pc=v.p?Math.round(v.x/v.p*100):0;
+    return `<div class="cat"><div class="row"><span class="name">${c.name}</span><span class="val">${v.p?fmtH(v.x).replace(' h','')+' / '+fmtH(v.p)+', '+pc+' %':'nicht geplant'}</span></div><div class="bar"><i style="width:${Math.min(pc,100)}%"></i></div></div>`;
+  }).join('');
+  $('future').hidden=!F;
+  $('future').textContent='Noch geplant in diesem Zeitraum: '+fmtH(F);
+}
+
+let LAST=null;
+function periodName(){
+  const [a,b]=rangeFor(rangeKind),A=parse(a),B=parse(b);
+  if(rangeKind==='all')return 'Gesamt';
+  if(rangeKind==='week')return 'Woche '+fmtRange(a,b);
+  return MON[A.getMonth()]+' '+A.getFullYear();
+}
+function drawCard(){
+  const W=1080,H=1350,c=document.createElement('canvas');c.width=W;c.height=H;
+  const g=c.getContext('2d'),F='-apple-system,"SF Pro Display","Helvetica Neue",Arial,sans-serif';
+  const {P,X,per}=LAST,pc=P?Math.round(X/P*100):0,mach=P&&X/P>=0.95;let wrapped=false;
+  g.fillStyle='#000';g.fillRect(0,0,W,H);
+  g.fillStyle='#fff';g.textBaseline='alphabetic';
+  g.font='600 44px '+F;g.fillText(periodName(),80,140);
+  g.fillStyle='#8a8a8a';g.font='500 36px '+F;g.fillText('geplant vs. geschafft',80,196);
+  g.fillStyle='#fff';g.font='800 300px '+F;
+  const txt=P?pc+'%':'–';g.fillText(txt,64,500);
+  if(mach){
+    const tw=g.measureText(txt).width;g.font='900 56px '+F;
+    const lbl='MACHER',lw=g.measureText(lbl).width+56;let bx=64+tw+36,by=330;
+    if(bx+lw>W-60){bx=80;by=540;wrapped=true;}
+    g.fillRect(bx,by,lw,92);g.fillStyle='#000';g.fillText(lbl,bx+28,by+68);g.fillStyle='#fff';
+  }
+  g.font='500 46px '+F;
+  g.fillText(P?fmtH(X).replace(' h','')+' von '+fmtH(P).replace(' h','')+' Stunden':'Nichts geplant',80,wrapped?720:610);
+  let y=wrapped?840:740;
+  g.fillRect(80,y-40,W-160,4);
+  CATS.forEach(cat=>{
+    const v=per[cat.id],p=v.p?Math.round(v.x/v.p*100):0;
+    y+=30;
+    g.font='700 46px '+F;g.fillStyle='#fff';g.fillText(cat.name,80,y+20);
+    g.font='500 38px '+F;g.fillStyle='#8a8a8a';g.textAlign='right';
+    g.fillText(v.p?fmtH(v.x).replace(' h','')+' / '+fmtH(v.p)+'   '+p+'%':'nicht geplant',W-80,y+20);g.textAlign='left';
+    g.strokeStyle='#fff';g.lineWidth=4;g.strokeRect(82,y+50,W-164,26);
+    g.fillStyle='#fff';g.fillRect(82,y+50,(W-164)*Math.min(p,100)/100,26);
+    y+=125;
+  });
+  g.fillStyle='#8a8a8a';g.font='600 34px '+F;g.fillText('PLAN',80,H-50);
+  return c;
+}
+let shareBlob=null;
+function saveFile(blob,name){
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+}
+function bMsg(t){$('bMsg').hidden=false;$('bMsg').textContent=t;}
+async function exportData(){
+  const name='plan-backup-'+today()+'.json';
+  const blob=new Blob([JSON.stringify({app:'plan',version:1,months},null,1)],{type:'application/json'});
+  try{
+    const file=new File([blob],name,{type:'application/json'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});bMsg('Backup gesichert.');return;}
+  }catch(e){if(e&&e.name==='AbortError')return;}
+  saveFile(blob,name);bMsg('Backup gesichert.');
+}
+function importData(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const o=JSON.parse(r.result),m=o&&o.months;
+      if(!m||typeof m!=='object')throw 0;
+      for(const k in m){if(!/^\d{4}-\d{2}$/.test(k)||!m[k].entries||typeof m[k].entries!=='object')throw 0;}
+      if(!confirm('Backup laden? Deine aktuellen Einträge werden dadurch ersetzt.'))return;
+      months=m;saveCache();render();bMsg('Backup geladen.');
+    }catch(e){bMsg('Diese Datei ist kein gültiges Backup dieser App.');}
+  };
+  r.readAsText(file);
+}
+function openShare(){
+  if(!LAST)renderStats();
+  const c=drawCard();
+  $('shareImg').src=c.toDataURL('image/png');
+  shareBlob=null;c.toBlob(b=>{shareBlob=b;},'image/png');
+  $('share').hidden=false;
+}
+async function doShare(){
+  if(!shareBlob)return;
+  const name='auswertung-'+today()+'.png';
+  try{
+    const file=new File([shareBlob],name,{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});return;}
+  }catch(e){if(e&&e.name==='AbortError')return;}
+  saveFile(shareBlob,name);
+  return;
+  $('shareGo').hidden=true;
+}
+function render(){renderPlan();if(!$('vStats').hidden)renderStats();}
+
+/* ---------- flash ---------- */
+function flash(){const f=$('flash');f.classList.remove('on');void f.offsetWidth;f.classList.add('on');}
+
+/* ---------- sheet ---------- */
+let S=null;
+function openSheet(mode,id){
+  if(mode==='add')S={mode,cat:'training',p:1,x:0,repeat:false};
+  else{const f=findEntry(id);if(!f)return;S={mode,id,cat:f.e.c,p:f.e.p,x:f.e.x||0};}
+  const sd=parse(mode==='add'?sel:findEntry(id).e.d);
+  $('sTitle').textContent=mode==='add'?'Neuer Eintrag':'Eintrag bearbeiten';
+  $('sWhen').textContent=WDAY[sd.getDay()]+', '+sd.getDate()+'. '+MON[sd.getMonth()];
+  $('sSave').textContent=mode==='add'?'Hinzufügen':'Speichern';
+  $('sXField').hidden=mode==='add';
+  $('sDelete').hidden=mode==='add';
+  $('sRepeatRow').hidden=mode!=='add';
+  $('sRepeat').checked=false;
+  $('sRepeatText').textContent='Jeden '+WDAY[sd.getDay()]+' bis Monatsende';
+  $('sheet').hidden=false;
+  drawSheet();
+}
+function drawSheet(){
+  $('sCat').innerHTML=CATS.map(c=>`<button data-cat="${c.id}" aria-pressed="${S.cat===c.id}">${c.name}</button>`).join('');
+  $('sP').textContent=fmtH(S.p);$('sX').textContent=fmtH(S.x);
+}
+function closeSheet(){$('sheet').hidden=true;S=null;}
+function saveSheet(){
+  if(S.mode==='add'){
+    const dates=[sel];
+    if($('sRepeat').checked){const d=parse(sel);const m=d.getMonth();d.setDate(d.getDate()+7);while(d.getMonth()===m){dates.push(ymd(d));d.setDate(d.getDate()+7);}}
+    dates.forEach(ds=>{monthOf(ds).entries[uid()]={d:ds,c:S.cat,p:S.p,x:0,t:Date.now()};});
+    persist(sel.slice(0,7));
+  }else{
+    const f=findEntry(S.id);if(f){const wasDone=f.e.x>0;f.e.c=S.cat;f.e.p=S.p;f.e.x=S.x;persist(f.key);if(!wasDone&&S.x>0)flash();}
+  }
+  closeSheet();render();
+}
+function deleteEntry(){const f=findEntry(S.id);if(f){delete months[f.key].entries[S.id];persist(f.key);}closeSheet();render();}
+
+/* ---------- events ---------- */
+$('prevM').onclick=()=>{vm--;if(vm<0){vm=11;vy--;}renderPlan();};
+$('nextM').onclick=()=>{vm++;if(vm>11){vm=0;vy++;}renderPlan();};
+$('todayBtn').onclick=()=>{const t=new Date();sel=ymd(t);vy=t.getFullYear();vm=t.getMonth();renderPlan();};
+$('grid').onclick=e=>{const b=e.target.closest('[data-date]');if(b){sel=b.dataset.date;renderPlan();}};
+$('list').onclick=e=>{
+  const c=e.target.closest('[data-check]');
+  if(c){const f=findEntry(c.dataset.check);if(!f)return;
+    if(f.e.x>0)f.e.x=0;else{f.e.x=f.e.p;flash();}
+    persist(f.key);renderPlan();return;}
+  const ed=e.target.closest('[data-edit]');if(ed)openSheet('edit',ed.dataset.edit);
+};
+$('addBtn').onclick=()=>openSheet('add');
+$('sCat').onclick=e=>{const b=e.target.closest('[data-cat]');if(b){S.cat=b.dataset.cat;drawSheet();}};
+document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{
+  const k=b.dataset.step,d=Number(b.dataset.d),min=k==='p'?0.5:0;
+  S[k]=Math.max(min,Math.min(24,S[k]+d));drawSheet();
+});
+$('sSave').onclick=saveSheet;
+$('shareBtn').onclick=openShare;
+$('exportBtn').onclick=exportData;
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';};
+$('shareGo').onclick=doShare;
+$('shareClose').onclick=()=>{$('share').hidden=true;$('shareGo').hidden=false;};
+$('sCancel').onclick=closeSheet;
+$('backdrop').onclick=closeSheet;
+$('sDelete').onclick=deleteEntry;
+$('range').onclick=e=>{const b=e.target.closest('[data-r]');if(b){rangeKind=b.dataset.r;renderStats();}};
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.removeAttribute('aria-current'));
+  b.setAttribute('aria-current','page');
+  const stats=b.dataset.tab==='stats';
+  $('vPlan').hidden=stats;$('vStats').hidden=!stats;
+  if(stats)renderStats();else renderPlan();
+  window.scrollTo(0,0);
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S)closeSheet();});
+
+loadCache();
+render();
+</script>
+</body>
+</html>
